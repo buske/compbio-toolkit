@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+
+set -o nounset
+set -o errexit
+set -o pipefail
+
+function usage {
+	cat >&2 <<EOF
+Usage: $0 STATUS_DIR URL [LAST_N [MAX_FAILED [TIMEOUT]]]
+
+Check access to the URL, storing recent results in STATUS_DIR/<hash>
+If enough of the recent calls failed, print an error to stdout.
+This makes it easy to include in a cron job.
+
+For example, to check the reachability of google.com every 30 minutes,
+and send an email if it's down for 2 or more consecutive attempts,
+the following line could be added to a user's crontab:
+
+0,30 * * * * $0 ~/ping_status/ google.com | mail -E -s '[crontab] Reachability issue' support@domain.com
+
+The LAST_N most recent results will be stored (default 2)
+Report if MAX_FAILED of the LAST_N results failed (default 2)
+The request will time out after TIMEOUT seconds (default 10)
+EOF
+	exit 1
+}
+
+if [[ $# -eq 0 ]]; then
+	usage
+elif [[ $# -lt 2 || $# -gt 5 ]]; then
+	echo -e "Unexpected number of arguments\n" >&2
+	usage
+fi
+
+STATUS_DIR="$1"
+URL="$2"
+KEEP_N=${3:-2} # keep last N status messages
+MAX_FAILS=${4:-2}  # maximum number of failures in last N messages
+TIMEOUT=${5:-10}  # seconds
+MD5=$(which md5sum || which md5 || (echo "Error: unable to find md5 command" >&2 && exit 1))
+
+mkdir -p "${STATUS_DIR}"
+
+# Get current status of site
+curl --max-time 10 -sfI "${URL}" > /dev/null && resp=$? || resp=$?
+time="$(date "+%a, %d %b %Y, %H:%M:%S %z")"
+if [[ $resp -eq 0 ]]; then
+	msg="SUCCESS"
+elif [[ $resp -eq 28 ]]; then
+	msg="ERROR: Timed out after ${TIMEOUT} seconds"
+else
+	msg="ERROR: Request failed with curl exit code: ${resp}"
+fi
+
+# Update record of last N status messages
+filename="$(echo "$URL" | "$MD5" | awk '{print $1}')"
+filepath="${STATUS_DIR}/${filename}"
+touch "${filepath}"
+echo "[${time}] ${msg}" \
+	| cat "${filepath}" - \
+	| tail -n "${KEEP_N}" \
+	>> "${filepath}.temp" \
+	&& mv "${filepath}.temp" "${filepath}"
+
+# Count failures, and potentially write report
+n_failures=$(grep -c "ERROR" "${filepath}" || true)
+if [[ "${n_failures}" -ge "${MAX_FAILS}" ]]; then
+	cat <<EOF
+Connection issues for URL: ${URL}
+
+Request failed for ${n_failures}/${KEEP_N} recent attempts.
+
+Log of the last ${KEEP_N} requests:
+$(cat "${filepath}")
+EOF
+fi
