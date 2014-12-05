@@ -1,4 +1,12 @@
 compbio-toolkit
 ===============
 
-A haphazard collection of useful scripts that I've written over the years
+A haphazard collection of useful scripts I've written for
+computational biology analysis over the years.
+
+
+Organization
+------------
+
+* cron: jobs useful for running via cron
+* vcf: scripts useful for processing VCF files
