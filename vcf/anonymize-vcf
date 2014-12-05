@@ -22,4 +22,19 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-awk -F"\t" 'BEGIN {OFS="\t"} /^#[^#]/ {$NF="SAMPLE"; print $0} /^[^#]/ {$3="."; $4=gensub("[a-zA-Z]", "A", "g", $4); $5=gensub("[a-zA-Z]", "T", "g", $5); $6=255; $8="."; $9="GT"; $10="0/1"; print $0}' "$@"
+awk -F"\t" 'BEGIN {OFS="\t"}
+/^#[^#]/ {
+  $NF = "SAMPLE";
+  print $0;
+}
+
+/^[^#]/ {
+  $3 = ".";
+  gsub("[a-zA-Z]", "A", $4);
+  gsub("[a-zA-Z]", "T", $5);
+  $6 = 255;
+  $8 = ".";
+  $9 = "GT";
+  $10 = "0/1";
+  print $0;
+}' "$@"
