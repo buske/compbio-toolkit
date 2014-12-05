@@ -10,6 +10,8 @@
 #   info (set to ".")
 #   genotype (set to heterozygous)
 #
+# PG header rows are also removed.
+#
 # The following fields are left unchanged:
 #   chromosome
 #   position
@@ -22,7 +24,10 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+grep -v "^##PG:" "$@" | \
 awk -F"\t" 'BEGIN {OFS="\t"}
+/^##/;
+
 /^#[^#]/ {
   $NF = "SAMPLE";
   print $0;
@@ -37,4 +42,4 @@ awk -F"\t" 'BEGIN {OFS="\t"}
   $9 = "GT";
   $10 = "0/1";
   print $0;
-}' "$@"
+}'
