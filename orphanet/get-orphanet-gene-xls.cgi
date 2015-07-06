@@ -16,14 +16,14 @@ from urllib.request import urlopen
 
 DATA_URL = 'http://www.orphadata.org/data/xml/en_product6.xml'
 
-def convert_xml_csv(infile):
+def convert_xml_csv(infile, outfile):
     logging.info('Parsing XML...')
     tree = ET.parse(infile)
     root = tree.getroot()
 
     header = ['Disorder name', 'Disorder OrphaNumber', 'Association type', 'Gene symbol', 'Association status', 'Gene alternate IDs']
-    logging.info('Writing data to stdout...')
-    writer = csv.DictWriter(sys.stdout, dialect=csv.excel_tab, fieldnames=header)
+    logging.info('Writing data to {}...'.format(outfile.name))
+    writer = csv.DictWriter(outfile, dialect=csv.excel_tab, fieldnames=header)
     writer.writeheader()
     for disorder in root.findall('.//Disorder'):
         disorder_name = disorder.find('Name').text
@@ -52,7 +52,7 @@ def main():
 
     logging.info('Fetching Orphanet file: {}'.format(DATA_URL))
     infile = urlopen(DATA_URL)
-    convert_xml_csv(infile)
+    convert_xml_csv(infile, sys.stdout)
 
 if __name__ == '__main__':
     sys.exit(main())
