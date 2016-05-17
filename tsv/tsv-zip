@@ -1,0 +1,130 @@
+#!/usr/bin/env python3
+
+"""
+Assumes a singleheader line
+"""
+
+import os
+import sys
+import logging
+
+from itertools import zip_longest
+
+
+def parse_line(line):
+    return line.rstrip('\r\n').split('\t')
+
+        
+def get_column_config(headers, join_columns, separate_columns):
+    n_columns =len(headers[0])
+    assert len(set(map(len, headers))) == 1, "Not all files have the same number of columns"
+
+    if separate_columns:
+        separate_columns = set([i - 1 for i in separate_columns])
+        join_columns = set(range(n_columns)) - separate_columns
+    else:
+        assert join_columns
+        join_columns = set([i - 1 for i in join_columns])
+        separate_columns = set(range(n_columns)) - join_columns
+
+    return sorted(join_columns), sorted(separate_columns)
+
+        
+def print_header(headers, filenames, join_columns=None, separate_columns=None):
+    fields = list(zip_longest(*headers))
+    new_header = []
+    # Merged columns
+    for i in join_columns:
+        values = set(fields[i])
+        assert len(values) == 1, "Headings for column are not equal: {}".format(values)
+        column_name = values.pop()
+        new_header.append(column_name)
+        
+    # Split columns
+    for i in separate_columns:
+        values = fields[i]
+        assert len(values) == len(filenames)
+        for column_name, filename in zip(values, filenames):
+            file_id = os.path.basename(filename).split('.')[0]
+            new_header.append('{} {}'.format(column_name, file_id))
+
+    print('\t'.join(new_header))
+    
+
+def zip_rows(rows, join_columns=None, separate_columns=None):
+    field_values = list(zip_longest(*rows))
+    output_row = []
+    # Merged columns first
+    for i in join_columns:
+        values = set(field_values[i])
+        values.discard(None)
+        assert len(values) == 1, "Values for merged column are not identical: {}".format(values)
+        value = values.pop()
+        output_row.append(value)
+
+    # Then separate values
+    for i in separate_columns:
+        for value in field_values[i]:
+            if value is None:
+                value = '.'
+            output_row.append(value)
+
+    print('\t'.join(output_row))
+
+
+def load_file(file, join_columns=None, separate_columns=None):
+    file_data = {}
+    for line in file:
+        row = parse_line(line)
+        key = tuple([row[i] for i in join_columns])
+        assert key not in file_data
+        file_data[key] = row
+        
+    return file_data
+
+
+def zip_files(filenames, join_columns=None, separate_columns=None):
+    files = [open(filename) for filename in filenames]
+    headers = [parse_line(file.readline()) for file in files]
+    join_columns, separate_columns = get_column_config(headers, join_columns, separate_columns)
+    logging.error('Joining on columns: {}'.format(', '.join(map(str, join_columns))))
+    logging.error('Splitting columns: {}'.format(', '.join(map(str, separate_columns))))
+    print_header(headers, filenames, join_columns=join_columns, separate_columns=separate_columns)
+    
+    file_dicts = [load_file(file, join_columns=join_columns, separate_columns=separate_columns) for file in files]
+    for file_dict in file_dicts:
+        logging.error('keys: {}'.format(len(file_dict)))
+    all_keys = set().union(*file_dicts)
+    logging.error('combined keys: {}'.format(len(all_keys)))
+    for key in sorted(all_keys):
+        rows = [file_dict.get(key, []) for file_dict in file_dicts]
+        zip_rows(rows, join_columns=join_columns, separate_columns=separate_columns)
+        
+    for file in files:
+        file.close()
+
+        
+def parse_args(args):
+    from argparse import ArgumentParser
+    description = __doc__.strip()
+    
+    parser = ArgumentParser(description=description)
+    parser.add_argument('filenames', metavar='FILE', nargs='+')
+    parser.add_argument('-j', '--join', metavar='N',
+                        dest='join_columns', type=int, action='append',
+                        help='Join on identical values of the following columns')
+    parser.add_argument('-x', '--separate', metavar='N',
+                        dest='separate_columns', type=int, action='append',
+                        help='Join on all columns except those specified here')
+
+    return parser.parse_args(args)
+
+
+def main(args=sys.argv[1:]):
+    args = parse_args(args)
+
+    zip_files(**vars(args))
+
+    
+if __name__ == '__main__':
+    sys.exit(main())
