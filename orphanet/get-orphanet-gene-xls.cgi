@@ -21,13 +21,13 @@ def convert_xml_csv(infile, outfile):
     tree = ET.parse(infile)
     root = tree.getroot()
 
-    header = ['Disorder name', 'Disorder OrphaNumber', 'Association type', 'Gene symbol', 'Association status', 'Gene alternate IDs']
+    header = ['Disorder name', 'Disorder OrphaCode', 'Association type', 'Gene symbol', 'Association status', 'Gene alternate IDs']
     logging.info('Converting to CSV...')
     writer = csv.DictWriter(outfile, dialect=csv.excel_tab, fieldnames=header)
     writer.writeheader()
     for disorder in root.findall('.//Disorder'):
         disorder_name = disorder.find('Name').text
-        disorder_orpha = disorder.find('OrphaNumber').text
+        disorder_orpha = disorder.find('OrphaCode').text
         for association in disorder.find('DisorderGeneAssociationList'):
             gene = association.find('Gene')
             gene_symbol = gene.find('Symbol').text
