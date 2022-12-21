@@ -110,6 +110,12 @@ def _iter_hp_terms(reader):
                 yield term_lines
 
             term_lines = []
+        elif line.startswith('[') and line.endswith(']'):
+            if term_lines:
+                yield term_lines
+
+            # Entering a non-term block, do not parse
+            term_lines = None
         else:
             if term_lines is not None:
                 term_lines.append(line)
@@ -148,6 +154,9 @@ class HPO(object):
                     hp = HPNode(lines)
                 except HPError:
                     continue
+                except:
+                    logger.error('Error parsing term: {}'.format(lines))
+                    raise
 
                 if hp.is_root():
                     roots.append(hp)
