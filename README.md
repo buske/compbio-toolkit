@@ -1,6 +1,9 @@
 compbio-toolkit
 ===============
 
+> [!NOTE]
+> This project is no longer being actively developed or maintained.
+
 A haphazard collection of useful scripts I've written for
 computational biology analysis over the years.
 
